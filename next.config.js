@@ -1,3 +1,10 @@
 module.exports = {
-  reactStrictMode: true,
-}
+    reactStrictMode: true,
+};
+
+module.exports = {
+    images: {
+        loader: "akamai",
+        path: "",
+    },
+};
