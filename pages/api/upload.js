@@ -1,10 +1,7 @@
 const b2cs = require("b2-cloud-storage");
 import formidable from "formidable";
 import { extname } from "path";
-// const zip = require("zip-lib");
 import Ably from "ably";
-import io from "socket.io-client";
-import { Server } from "socket.io";
 
 export const config = {
     api: {
