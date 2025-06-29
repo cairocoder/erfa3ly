@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
+import { authOptions } from "../auth/[...nextauth]";
 import clientPromise from "../../lib/mongodb";
+import { ObjectId } from "mongodb";
 
 // Helper function to get database name from MongoDB URI
 const getDatabaseName = () => {
@@ -45,11 +46,9 @@ export default async function handler(req, res) {
         } = req.body;
 
         if (!uploadId || !fileId || !filename) {
-            return res
-                .status(400)
-                .json({
-                    error: "Upload ID, file ID, and filename are required",
-                });
+            return res.status(400).json({
+                error: "Upload ID, file ID, and filename are required",
+            });
         }
 
         // Update the upload record in database
@@ -58,7 +57,7 @@ export default async function handler(req, res) {
         const db = client.db(dbName);
 
         const updateResult = await db.collection("uploads").updateOne(
-            { _id: uploadId, userId: session.user.id },
+            { _id: new ObjectId(uploadId), userId: session.user.id },
             {
                 $set: {
                     fileId: fileId,

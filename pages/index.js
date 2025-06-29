@@ -355,6 +355,8 @@ export default function Home() {
             // Get upload URL from server
             const filename = Date.now() + extname(file.name);
 
+            console.log("Requesting upload URL for:", filename);
+
             const urlResponse = await fetch("/api/get-upload-url", {
                 method: "POST",
                 headers: {
@@ -367,12 +369,21 @@ export default function Home() {
                 }),
             });
 
+            console.log("Upload URL response status:", urlResponse.status);
+            console.log("Upload URL response headers:", urlResponse.headers);
+
             if (!urlResponse.ok) {
-                throw new Error("Failed to get upload URL");
+                const errorText = await urlResponse.text();
+                console.error("Upload URL error response:", errorText);
+                throw new Error(
+                    `Failed to get upload URL: ${urlResponse.status} - ${errorText}`
+                );
             }
 
             const { uploadUrl, authorizationToken, uploadId } =
                 await urlResponse.json();
+            console.log("Got upload URL:", uploadUrl);
+            console.log("Got upload ID:", uploadId);
 
             // Upload directly to Backblaze B2
             const uploadResponse = await fetch(uploadUrl, {

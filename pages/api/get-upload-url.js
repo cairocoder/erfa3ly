@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
+import { authOptions } from "../auth/[...nextauth]";
 import clientPromise from "../../lib/mongodb";
 
 const b2cs = require("b2-cloud-storage");
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
         res.status(200).json({
             uploadUrl: uploadUrlResponse.uploadUrl,
             authorizationToken: uploadUrlResponse.authorizationToken,
-            uploadId: uploadRecord._id,
+            uploadId: uploadRecord._id.toString(),
         });
     } catch (error) {
         console.error("Error getting upload URL:", error);
