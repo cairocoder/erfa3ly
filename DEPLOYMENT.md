@@ -10,10 +10,10 @@
 
 ### File Upload Size Limit
 
--   **Vercel serverless functions have a 4.5MB payload limit**
--   This app is configured to handle files up to 4MB
--   For larger files, you would need to implement direct upload to Backblaze B2 using presigned URLs
--   The current implementation will show an error for files larger than 4MB
+-   **Direct upload to Backblaze B2**: Files up to 5GB (standard) or 10TB (large files)
+-   **No Vercel payload limits**: Files are uploaded directly to Backblaze B2, bypassing Vercel's 4.5MB limit
+-   **Large file support**: Uses Backblaze B2's large file API for files over 5GB
+-   **Progress tracking**: Real-time upload progress with Ably integration
 
 ## Step 1: Environment Variables
 

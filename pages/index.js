@@ -15,6 +15,7 @@ import base64 from "base64-encode-decode";
 import Ably from "ably";
 import Image from "next/image";
 import ProgressBar from "react-customizable-progressbar";
+import { extname } from "path";
 
 const ably = new Ably.Realtime(
     "LObVIA.-Xrj3A:IGVxQ6RDqWeKj7bFnzILx1Mt3qTMKL-rh43QiJxWP8s"
@@ -330,16 +331,9 @@ export default function Home() {
         sessionStorage.setItem("pendingUploadId", uploadId);
 
         try {
-            // For large files, we'll use a different approach
+            // Use direct upload to Backblaze B2 for all files
             const file = selectedFiles[0];
-            const fileSize = file.size;
-
-            // If file is larger than 4MB, use direct upload to B2
-            if (fileSize > 4 * 1024 * 1024) {
-                await uploadLargeFile(file);
-            } else {
-                await uploadSmallFile(file);
-            }
+            await uploadFile(file);
         } catch (error) {
             if (error.name === "AbortError") {
                 console.log("Upload was cancelled");
@@ -356,54 +350,102 @@ export default function Home() {
         }
     };
 
-    const uploadSmallFile = async (file) => {
-        let formData = new FormData();
-        formData.append("file", file);
+    const uploadFile = async (file) => {
+        try {
+            // Get upload URL from server
+            const filename = Date.now() + extname(file.name);
 
-        const response = await fetch("/api/upload", {
-            method: "POST",
-            body: formData,
-            signal: abortControllerRef.current.signal,
-        });
+            const urlResponse = await fetch("/api/get-upload-url", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    filename: filename,
+                    contentType: file.type,
+                    fileSize: file.size,
+                }),
+            });
 
-        if (response.ok) {
-            const result = await response.json();
+            if (!urlResponse.ok) {
+                throw new Error("Failed to get upload URL");
+            }
+
+            const { uploadUrl, authorizationToken, uploadId } =
+                await urlResponse.json();
+
+            // Upload directly to Backblaze B2
+            const uploadResponse = await fetch(uploadUrl, {
+                method: "POST",
+                headers: {
+                    Authorization: authorizationToken,
+                    "Content-Type": file.type,
+                    "Content-Length": file.size,
+                    "X-Bz-File-Name": filename,
+                    "X-Bz-Content-Sha1": await calculateSha1(file),
+                },
+                body: file,
+                signal: abortControllerRef.current.signal,
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error("Failed to upload to Backblaze B2");
+            }
+
+            const uploadResult = await uploadResponse.json();
+
+            // Complete the upload
+            const completeResponse = await fetch("/api/complete-upload", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    uploadId: uploadId,
+                    fileId: uploadResult.fileId,
+                    filename: filename,
+                    originalName: file.name,
+                    fileSize: file.size,
+                    contentType: file.type,
+                }),
+            });
+
+            if (!completeResponse.ok) {
+                throw new Error("Failed to complete upload");
+            }
+
+            const completeResult = await completeResponse.json();
+
+            // Set success states
             console.log("Upload completed successfully, setting states...");
-            setFilename(base64.base64Encode(result.url));
+            setFilename(base64.base64Encode(filename));
             setProgress(100);
             setUploadCompleted(true);
             setUploadTrulyCompleted(true);
             uploadCompletedRef.current = true;
-            console.log(
-                "Upload states set - filename:",
-                base64.base64Encode(result.url),
-                "uploadCompleted: true",
-                "uploadTrulyCompleted: true"
-            );
 
             // Clear sessionStorage on successful upload
             sessionStorage.removeItem("pendingUploadId");
             sessionStorage.removeItem("pendingFieldId");
-
-            // Add a small delay to ensure state updates are processed
-            setTimeout(() => {
-                console.log(
-                    "State update delay completed - uploadTrulyCompleted should be true now"
-                );
-            }, 100);
-        } else {
-            throw new Error(`Upload failed: ${response.status}`);
+        } catch (error) {
+            if (error.name === "AbortError") {
+                console.log("Upload was cancelled");
+            } else {
+                console.error("Upload error:", error);
+                setError(error.message || "Upload failed. Please try again.");
+            }
         }
     };
 
-    const uploadLargeFile = async (file) => {
-        // For large files, we'll implement a different approach
-        // This could involve getting a presigned URL from the server
-        // and uploading directly to Backblaze B2
-        setError(
-            "Large file uploads are not yet supported. Please use files smaller than 4MB."
-        );
-        throw new Error("Large file uploads not supported");
+    // Helper function to calculate SHA1 hash
+    const calculateSha1 = async (file) => {
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("");
+        return hashHex;
     };
 
     const ClipboardCopy = () => {
@@ -464,30 +506,6 @@ export default function Home() {
                                                     const file =
                                                         e.target.files[0];
                                                     if (file) {
-                                                        const fileSize =
-                                                            file.size;
-                                                        const maxSize =
-                                                            4 * 1024 * 1024; // 4MB
-
-                                                        if (
-                                                            fileSize > maxSize
-                                                        ) {
-                                                            setError(
-                                                                `File size (${(
-                                                                    fileSize /
-                                                                    1024 /
-                                                                    1024
-                                                                ).toFixed(
-                                                                    2
-                                                                )}MB) exceeds the 4MB limit. Please choose a smaller file.`
-                                                            );
-                                                            e.target.value = "";
-                                                            setSelectedFiles(
-                                                                null
-                                                            );
-                                                            return;
-                                                        }
-
                                                         setError("");
                                                         setSelectedFiles(
                                                             e.target.files
@@ -496,7 +514,8 @@ export default function Home() {
                                                 }}
                                             />
                                             <Form.Text className="text-muted">
-                                                Maximum file size: 4MB
+                                                Maximum file size: 5GB (standard
+                                                files) or 10TB (large files)
                                             </Form.Text>
                                         </Form.Group>
                                     )}
