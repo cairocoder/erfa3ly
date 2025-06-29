@@ -16,6 +16,7 @@
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",
     "ably": "^1.2.43",
+    "aws-sdk": "^2.1692.0",
     "b2-cloud-storage": "^1.0.5",
     "base64-encode-decode": "^0.0.3",
     "bcrypt": "^5.1.1",

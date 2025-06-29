@@ -352,84 +352,35 @@ export default function Home() {
 
     const uploadFile = async (file) => {
         try {
-            // Get upload URL from server
-            const filename = Date.now() + extname(file.name);
+            console.log("Starting server-side upload for:", file.name);
 
-            console.log("Requesting upload URL for:", filename);
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append("file", file);
 
-            const urlResponse = await fetch("/api/get-upload-url", {
+            // Upload through our server to avoid CORS issues
+            const uploadResponse = await fetch("/api/upload", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    filename: filename,
-                    contentType: file.type,
-                    fileSize: file.size,
-                }),
-            });
-
-            console.log("Upload URL response status:", urlResponse.status);
-            console.log("Upload URL response headers:", urlResponse.headers);
-
-            if (!urlResponse.ok) {
-                const errorText = await urlResponse.text();
-                console.error("Upload URL error response:", errorText);
-                throw new Error(
-                    `Failed to get upload URL: ${urlResponse.status} - ${errorText}`
-                );
-            }
-
-            const { uploadUrl, authorizationToken, uploadId } =
-                await urlResponse.json();
-            console.log("Got upload URL:", uploadUrl);
-            console.log("Got upload ID:", uploadId);
-
-            // Upload directly to Backblaze B2
-            const uploadResponse = await fetch(uploadUrl, {
-                method: "POST",
-                headers: {
-                    Authorization: authorizationToken,
-                    "Content-Type": file.type,
-                    "Content-Length": file.size,
-                    "X-Bz-File-Name": filename,
-                    "X-Bz-Content-Sha1": await calculateSha1(file),
-                },
-                body: file,
+                body: formData,
                 signal: abortControllerRef.current.signal,
             });
 
+            console.log("Upload response status:", uploadResponse.status);
+
             if (!uploadResponse.ok) {
-                throw new Error("Failed to upload to Backblaze B2");
+                const errorText = await uploadResponse.text();
+                console.error("Upload error response:", errorText);
+                throw new Error(
+                    `Upload failed: ${uploadResponse.status} - ${errorText}`
+                );
             }
 
             const uploadResult = await uploadResponse.json();
-
-            // Complete the upload
-            const completeResponse = await fetch("/api/complete-upload", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    uploadId: uploadId,
-                    fileId: uploadResult.fileId,
-                    filename: filename,
-                    originalName: file.name,
-                    fileSize: file.size,
-                    contentType: file.type,
-                }),
-            });
-
-            if (!completeResponse.ok) {
-                throw new Error("Failed to complete upload");
-            }
-
-            const completeResult = await completeResponse.json();
+            console.log("Upload result:", uploadResult);
 
             // Set success states
             console.log("Upload completed successfully, setting states...");
-            setFilename(base64.base64Encode(filename));
+            setFilename(uploadResult.filename);
             setProgress(100);
             setUploadCompleted(true);
             setUploadTrulyCompleted(true);

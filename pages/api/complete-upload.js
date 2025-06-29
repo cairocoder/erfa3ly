@@ -51,29 +51,35 @@ export default async function handler(req, res) {
             });
         }
 
-        // Update the upload record in database
+        // Connect to MongoDB
         const client = await clientPromise;
         const dbName = getDatabaseName();
         const db = client.db(dbName);
 
-        const updateResult = await db.collection("uploads").updateOne(
-            { _id: new ObjectId(uploadId), userId: session.user.id },
+        // Update the upload record
+        const result = await db.collection("uploads").updateOne(
+            { _id: new ObjectId(uploadId) },
             {
                 $set: {
-                    fileId: fileId,
                     status: "completed",
-                    downloadUrl: `https://erfa3ly.com/download/${filename}`,
+                    fileId: fileId,
+                    originalName: originalName,
+                    size: fileSize || 0,
+                    mimeType: contentType,
                     completedAt: new Date(),
+                    downloadUrl: `https://erfa3ly.com/download/${filename}`,
                 },
             }
         );
 
-        if (updateResult.matchedCount === 0) {
+        if (result.matchedCount === 0) {
             return res.status(404).json({ error: "Upload record not found" });
         }
 
         res.status(200).json({
             success: true,
+            message: "Upload completed successfully",
+            fileId: fileId,
             filename: filename,
             downloadUrl: `https://erfa3ly.com/download/${filename}`,
         });
