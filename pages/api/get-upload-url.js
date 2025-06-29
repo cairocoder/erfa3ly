@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
+import { authOptions } from "./auth/[...nextauth]";
 import clientPromise from "../../lib/mongodb";
 
 const b2cs = require("b2-cloud-storage");
