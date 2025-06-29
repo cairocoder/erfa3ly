@@ -1,16 +1,50 @@
-module.exports = {
-    reactStrictMode: true,
-};
-
-module.exports = {
-    images: {
-        loader: "akamai",
-        path: "",
-    },
-};
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    reactStrictMode: true,
+    // Fix Fast Refresh issues
+    webpack: (config, { dev, isServer }) => {
+        if (dev && !isServer) {
+            // Fix Fast Refresh issues
+            config.resolve.fallback = {
+                ...config.resolve.fallback,
+                fs: false,
+            };
+        }
+        return config;
+    },
+    // Improve development experience
+    experimental: {
+        // Enable better error handling
+        scrollRestoration: true,
+    },
+    images: {
+        remotePatterns: [
+            {
+                protocol: "https",
+                hostname: "lh3.googleusercontent.com",
+                port: "",
+                pathname: "/**",
+            },
+            {
+                protocol: "https",
+                hostname: "graph.facebook.com",
+                port: "",
+                pathname: "/**",
+            },
+            {
+                protocol: "https",
+                hostname: "platform-lookaside.fbsbx.com",
+                port: "",
+                pathname: "/**",
+            },
+            {
+                protocol: "https",
+                hostname: "*.googleusercontent.com",
+                port: "",
+                pathname: "/**",
+            },
+        ],
+    },
     async headers() {
         return [
             {

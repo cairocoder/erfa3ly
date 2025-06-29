@@ -1,0 +1,17 @@
+/* Fix dropdown arrow positioning */
+.profileDropdown .dropdown-toggle::after {
+    vertical-align: middle;
+    margin-left: 0.5rem;
+}
+
+/* Ensure proper alignment of dropdown title content */
+.profileDropdown .dropdown-toggle {
+    display: flex !important;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* Fix spacing in dropdown title */
+.profileDropdown .dropdown-toggle .d-flex {
+    align-items: center;
+}

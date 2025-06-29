@@ -47,3 +47,21 @@ a {
 .RCP {
     margin: 0 auto;
 }
+
+:root {
+    font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* Fix Bootstrap NavDropdown arrow positioning */
+.navbar .dropdown-toggle::after {
+    vertical-align: middle !important;
+    margin-left: 0.5rem !important;
+    position: relative !important;
+    top: 0 !important;
+}
+
+.navbar .dropdown-toggle {
+    display: flex !important;
+    align-items: center !important;
+    white-space: nowrap !important;
+}
