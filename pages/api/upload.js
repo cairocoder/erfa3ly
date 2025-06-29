@@ -9,6 +9,7 @@ import clientPromise from "../../lib/mongodb";
 export const config = {
     api: {
         bodyParser: false,
+        responseLimit: false,
     },
 };
 
@@ -43,9 +44,39 @@ const cleanupOldUploads = () => {
 // Run cleanup every 5 minutes
 setInterval(cleanupOldUploads, 5 * 60 * 1000);
 
+// Helper function to get database name from MongoDB URI
+const getDatabaseName = () => {
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+        console.error("MONGODB_URI not found in environment variables");
+        return "erfa3ly"; // fallback
+    }
+
+    try {
+        // Parse the URI to extract database name
+        const url = new URL(uri);
+        const pathParts = url.pathname
+            .split("/")
+            .filter((part) => part.length > 0);
+        const dbName = pathParts[pathParts.length - 1] || "erfa3ly";
+        console.log("Extracted database name from URI:", dbName);
+        return dbName;
+    } catch (error) {
+        console.error("Error parsing MongoDB URI:", error);
+        return "erfa3ly"; // fallback
+    }
+};
+
 const post = async (req, res) => {
+    // Configure formidable for large files
     const form = new formidable.IncomingForm({
-        maxFileSize: 10_000_000_000,
+        maxFileSize: 10_000_000_000, // 10GB
+        maxFields: 1,
+        allowEmptyFiles: false,
+        filter: function ({ name, originalFilename, mimetype }) {
+            // Only allow files, not fields
+            return mimetype && mimetype.includes("image");
+        },
     });
 
     form.parse(req, async function (err, fields, files) {
@@ -310,29 +341,6 @@ const performCancellation = async (fieldId, res) => {
             });
         }
     });
-};
-
-// Helper function to get database name from MongoDB URI
-const getDatabaseName = () => {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) {
-        console.error("MONGODB_URI not found in environment variables");
-        return "erfa3ly"; // fallback
-    }
-
-    try {
-        // Parse the URI to extract database name
-        const url = new URL(uri);
-        const pathParts = url.pathname
-            .split("/")
-            .filter((part) => part.length > 0);
-        const dbName = pathParts[pathParts.length - 1] || "erfa3ly";
-        console.log("Extracted database name from URI:", dbName);
-        return dbName;
-    } catch (error) {
-        console.error("Error parsing MongoDB URI:", error);
-        return "erfa3ly"; // fallback
-    }
 };
 
 const methods = (req, res) => {

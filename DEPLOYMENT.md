@@ -6,6 +6,15 @@
 -   GitHub repository with your code
 -   All environment variables ready
 
+## Important Limitations
+
+### File Upload Size Limit
+
+-   **Vercel serverless functions have a 4.5MB payload limit**
+-   This app is configured to handle files up to 4MB
+-   For larger files, you would need to implement direct upload to Backblaze B2 using presigned URLs
+-   The current implementation will show an error for files larger than 4MB
+
 ## Step 1: Environment Variables
 
 Add these environment variables in your Vercel project settings:

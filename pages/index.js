@@ -329,43 +329,16 @@ export default function Home() {
         const uploadId = Date.now().toString();
         sessionStorage.setItem("pendingUploadId", uploadId);
 
-        let formData = new FormData();
-        formData.append("file", selectedFiles[0]);
-
         try {
-            const response = await fetch("/api/upload", {
-                method: "POST",
-                body: formData,
-                signal: abortControllerRef.current.signal,
-            });
+            // For large files, we'll use a different approach
+            const file = selectedFiles[0];
+            const fileSize = file.size;
 
-            if (response.ok) {
-                const result = await response.json();
-                console.log("Upload completed successfully, setting states...");
-                setFilename(base64.base64Encode(result.url));
-                setProgress(100);
-                setUploadCompleted(true);
-                setUploadTrulyCompleted(true);
-                uploadCompletedRef.current = true;
-                console.log(
-                    "Upload states set - filename:",
-                    base64.base64Encode(result.url),
-                    "uploadCompleted: true",
-                    "uploadTrulyCompleted: true"
-                );
-
-                // Clear sessionStorage on successful upload
-                sessionStorage.removeItem("pendingUploadId");
-                sessionStorage.removeItem("pendingFieldId");
-
-                // Add a small delay to ensure state updates are processed
-                setTimeout(() => {
-                    console.log(
-                        "State update delay completed - uploadTrulyCompleted should be true now"
-                    );
-                }, 100);
+            // If file is larger than 4MB, use direct upload to B2
+            if (fileSize > 4 * 1024 * 1024) {
+                await uploadLargeFile(file);
             } else {
-                throw new Error(`Upload failed: ${response.status}`);
+                await uploadSmallFile(file);
             }
         } catch (error) {
             if (error.name === "AbortError") {
@@ -381,6 +354,56 @@ export default function Home() {
             setIsUploading(false);
             abortControllerRef.current = null;
         }
+    };
+
+    const uploadSmallFile = async (file) => {
+        let formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+            signal: abortControllerRef.current.signal,
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log("Upload completed successfully, setting states...");
+            setFilename(base64.base64Encode(result.url));
+            setProgress(100);
+            setUploadCompleted(true);
+            setUploadTrulyCompleted(true);
+            uploadCompletedRef.current = true;
+            console.log(
+                "Upload states set - filename:",
+                base64.base64Encode(result.url),
+                "uploadCompleted: true",
+                "uploadTrulyCompleted: true"
+            );
+
+            // Clear sessionStorage on successful upload
+            sessionStorage.removeItem("pendingUploadId");
+            sessionStorage.removeItem("pendingFieldId");
+
+            // Add a small delay to ensure state updates are processed
+            setTimeout(() => {
+                console.log(
+                    "State update delay completed - uploadTrulyCompleted should be true now"
+                );
+            }, 100);
+        } else {
+            throw new Error(`Upload failed: ${response.status}`);
+        }
+    };
+
+    const uploadLargeFile = async (file) => {
+        // For large files, we'll implement a different approach
+        // This could involve getting a presigned URL from the server
+        // and uploading directly to Backblaze B2
+        setError(
+            "Large file uploads are not yet supported. Please use files smaller than 4MB."
+        );
+        throw new Error("Large file uploads not supported");
     };
 
     const ClipboardCopy = () => {
@@ -438,11 +461,43 @@ export default function Home() {
                                                 label="Select a File"
                                                 name="file"
                                                 onChange={(e) => {
-                                                    setSelectedFiles(
-                                                        e.target.files
-                                                    );
+                                                    const file =
+                                                        e.target.files[0];
+                                                    if (file) {
+                                                        const fileSize =
+                                                            file.size;
+                                                        const maxSize =
+                                                            4 * 1024 * 1024; // 4MB
+
+                                                        if (
+                                                            fileSize > maxSize
+                                                        ) {
+                                                            setError(
+                                                                `File size (${(
+                                                                    fileSize /
+                                                                    1024 /
+                                                                    1024
+                                                                ).toFixed(
+                                                                    2
+                                                                )}MB) exceeds the 4MB limit. Please choose a smaller file.`
+                                                            );
+                                                            e.target.value = "";
+                                                            setSelectedFiles(
+                                                                null
+                                                            );
+                                                            return;
+                                                        }
+
+                                                        setError("");
+                                                        setSelectedFiles(
+                                                            e.target.files
+                                                        );
+                                                    }
                                                 }}
                                             />
+                                            <Form.Text className="text-muted">
+                                                Maximum file size: 4MB
+                                            </Form.Text>
                                         </Form.Group>
                                     )}
                                     {error && (
