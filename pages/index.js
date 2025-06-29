@@ -352,35 +352,201 @@ export default function Home() {
 
     const uploadFile = async (file) => {
         try {
-            console.log("Starting server-side upload for:", file.name);
+            // Get upload URL from server
+            const filename = Date.now() + extname(file.name);
 
-            // Create FormData for file upload
-            const formData = new FormData();
-            formData.append("file", file);
+            console.log("Requesting upload URL for:", filename);
 
-            // Upload through our server to avoid CORS issues
-            const uploadResponse = await fetch("/api/upload", {
+            const urlResponse = await fetch("/api/get-upload-url", {
                 method: "POST",
-                body: formData,
-                signal: abortControllerRef.current.signal,
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    filename: filename,
+                    contentType: file.type,
+                    fileSize: file.size,
+                }),
             });
 
-            console.log("Upload response status:", uploadResponse.status);
+            console.log("Upload URL response status:", urlResponse.status);
+
+            if (!urlResponse.ok) {
+                const errorText = await urlResponse.text();
+                console.error("Upload URL error response:", errorText);
+                throw new Error(
+                    `Failed to get upload URL: ${urlResponse.status} - ${errorText}`
+                );
+            }
+
+            const {
+                uploadUrl: initialUploadUrl,
+                authorizationToken: initialAuthToken,
+                uploadId,
+            } = await urlResponse.json();
+            console.log("Got upload URL:", initialUploadUrl);
+            console.log("Got upload ID:", uploadId);
+
+            // Validate the upload URL
+            if (!initialUploadUrl || !initialUploadUrl.startsWith("http")) {
+                throw new Error(`Invalid upload URL: ${initialUploadUrl}`);
+            }
+
+            console.log("Starting upload to B2...");
+            console.log("Upload URL:", initialUploadUrl);
+            console.log("File size:", file.size);
+            console.log("Content type:", file.type);
+
+            // Calculate SHA1 hash for the file
+            const sha1Hash = await calculateSha1(file);
+            console.log("SHA1 hash:", sha1Hash);
+
+            // Upload to Backblaze B2 with retry logic using proxy approach
+            let uploadResponse;
+            let retryCount = 0;
+            const maxRetries = 5;
+            let uploadUrl = initialUploadUrl;
+            let authorizationToken = initialAuthToken;
+
+            while (retryCount < maxRetries) {
+                try {
+                    console.log(
+                        `Upload attempt ${retryCount + 1}/${maxRetries}`
+                    );
+
+                    // Use proxy approach to avoid CORS issues
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    formData.append("uploadUrl", uploadUrl);
+                    formData.append("authorizationToken", authorizationToken);
+                    formData.append("filename", filename);
+                    formData.append("contentType", file.type);
+                    formData.append("fileSize", file.size.toString());
+                    formData.append("sha1Hash", sha1Hash);
+
+                    uploadResponse = await fetch("/api/proxy-upload", {
+                        method: "POST",
+                        body: formData,
+                        signal: abortControllerRef.current.signal,
+                    });
+
+                    console.log(
+                        "Upload response status:",
+                        uploadResponse.status
+                    );
+
+                    // If successful, break out of retry loop
+                    if (uploadResponse.ok) {
+                        break;
+                    }
+
+                    // Check if we should retry based on B2 documentation
+                    const shouldRetry =
+                        uploadResponse.status === 408 ||
+                        (uploadResponse.status >= 500 &&
+                            uploadResponse.status < 600) ||
+                        uploadResponse.status === 503;
+
+                    if (shouldRetry && retryCount < maxRetries - 1) {
+                        console.log(
+                            `Retrying upload due to status ${uploadResponse.status}`
+                        );
+                        retryCount++;
+
+                        // Get a new upload URL for retry
+                        const newUrlResponse = await fetch(
+                            "/api/get-upload-url",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    filename: filename,
+                                    contentType: file.type,
+                                    fileSize: file.size,
+                                }),
+                            }
+                        );
+
+                        if (newUrlResponse.ok) {
+                            const newData = await newUrlResponse.json();
+                            uploadUrl = newData.uploadUrl;
+                            authorizationToken = newData.authorizationToken;
+                            console.log("Got new upload URL for retry");
+                        } else {
+                            throw new Error(
+                                "Failed to get new upload URL for retry"
+                            );
+                        }
+
+                        // Wait a bit before retrying
+                        await new Promise((resolve) =>
+                            setTimeout(resolve, 1000 * retryCount)
+                        );
+                        continue;
+                    } else {
+                        // Don't retry, throw error
+                        break;
+                    }
+                } catch (error) {
+                    if (error.name === "AbortError") {
+                        throw error; // Don't retry aborted requests
+                    }
+
+                    console.error(
+                        `Upload attempt ${retryCount + 1} failed:`,
+                        error
+                    );
+                    retryCount++;
+
+                    if (retryCount >= maxRetries) {
+                        throw error;
+                    }
+
+                    // Wait before retrying
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, 1000 * retryCount)
+                    );
+                }
+            }
 
             if (!uploadResponse.ok) {
                 const errorText = await uploadResponse.text();
                 console.error("Upload error response:", errorText);
                 throw new Error(
-                    `Upload failed: ${uploadResponse.status} - ${errorText}`
+                    `Failed to upload to Backblaze B2: ${uploadResponse.status} - ${errorText}`
                 );
             }
 
             const uploadResult = await uploadResponse.json();
             console.log("Upload result:", uploadResult);
 
+            // Complete the upload
+            const completeResponse = await fetch("/api/complete-upload", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    uploadId: uploadId,
+                    fileId: uploadResult.fileId,
+                    filename: filename,
+                    originalName: file.name,
+                    fileSize: file.size,
+                    contentType: file.type,
+                }),
+            });
+
+            if (!completeResponse.ok) {
+                throw new Error("Failed to complete upload");
+            }
+
+            const completeResult = await completeResponse.json();
+
             // Set success states
             console.log("Upload completed successfully, setting states...");
-            setFilename(uploadResult.filename);
+            setFilename(base64.base64Encode(filename));
             setProgress(100);
             setUploadCompleted(true);
             setUploadTrulyCompleted(true);
