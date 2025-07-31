@@ -1,31 +1,82 @@
-import React from "react";
+import React, { useState } from "react";
 import Image from 'next/image';
 import Link from 'next/link';
-// import { ReactComponent as Logo } from './logo.svg';
-import logo from './logo.png';
-import "./Header.module.css";
+import { useSession, signOut } from 'next-auth/react';
+import { Navbar, Nav, Button } from 'react-bootstrap';
+import styles from "./Header.module.css";
 
 const Header = () => {
+    const { data: session, status } = useSession();
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const handleSignOut = () => {
+        signOut({ callbackUrl: '/' });
+    };
+
     return (
-        <nav className="py-2 bg-light border-bottom" id="navbarText">
-            <div className="container d-flex flex-wrap align-items-center py-2">
-                <div className="col-6 nav justify-content-start">
-                    <Link href="/" passHref>
-                        <a>
-                            <Image src={logo} alt="logo" width={175} height={50} />
-                        </a>
-                    </Link>
-                </div>
-                <div className="col-6 nav justify-content-end">
-                    {/* <ul className="nav">
-                        <li className="nav-item"><a href="#" className="nav-link link-dark px-2">Login</a></li>
-                        <li className="nav-item"><a href="#" className="nav-link link-dark px-2">Sign up</a></li>
-                    </ul> */}
-                        <Image src="/beta.png" alt="logo" width={100} height={70} />
-                </div>
+        <Navbar bg="light" expand="lg" className="border-bottom">
+            <div className="container">
+                <Link href="/" className="navbar-brand">
+                    <Image src="/logo.png" alt="logo" width={175} height={50} />
+                </Link>
+                
+                <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                <Navbar.Collapse id="basic-navbar-nav">
+                    <Nav className="me-auto">
+                        {/* Navigation links removed */}
+                    </Nav>
+                    
+                    <Nav className="ms-auto">
+                        {status === "loading" ? (
+                            <div className="d-flex align-items-center">
+                                <div className="spinner-border spinner-border-sm me-2" role="status">
+                                    <span className="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        ) : session ? (
+                            <div className={`dropdown ${styles.profileDropdown}`}>
+                                <button 
+                                    className="btn btn-link dropdown-toggle d-flex align-items-center" 
+                                    type="button" 
+                                    id="profileDropdown" 
+                                    data-bs-toggle="dropdown" 
+                                    aria-expanded="false"
+                                >
+                                    <Image 
+                                        src={session.user?.image || "/default-avatar.svg"} 
+                                        alt="Profile" 
+                                        width={32} 
+                                        height={32} 
+                                        className="rounded-circle me-2"
+                                    />
+                                    <span className={styles.userName}>{session.user?.name || session.user?.email}</span>
+                                </button>
+                                <ul className="dropdown-menu" aria-labelledby="profileDropdown">
+                                    <li><Link href="/profile" className="dropdown-item">Profile</Link></li>
+                                    <li><Link href="/upload-history" className="dropdown-item">Upload History</Link></li>
+                                    <li><hr className="dropdown-divider" /></li>
+                                    <li><button className="dropdown-item" onClick={handleSignOut}>Sign Out</button></li>
+                                </ul>
+                            </div>
+                        ) : (
+                            <div className="d-flex gap-2">
+                                <Link href="/auth/signin">
+                                    <Button variant="outline-primary" size="sm">
+                                        Sign In
+                                    </Button>
+                                </Link>
+                                <Link href="/auth/signup">
+                                    <Button variant="primary" size="sm">
+                                        Sign Up
+                                    </Button>
+                                </Link>
+                            </div>
+                        )}
+                    </Nav>
+                </Navbar.Collapse>
             </div>
-        </nav>
-    )
-}
+        </Navbar>
+    );
+};
 
 export default Header;

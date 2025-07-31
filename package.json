@@ -3,31 +3,35 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "18.17.1",
-    "npm": "9.6.7"
+    "node": ">=18.17.0",
+    "npm": ">=9.0.0"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "export": "next export"
+    "migrate:app-router": "echo 'To migrate, create an app/ directory and move pages incrementally.'"
   },
   "dependencies": {
-    "ably": "^1.2.43",
-    "b2-cloud-storage": "^1.0.5",
+    "@auth/mongodb-adapter": "^3.10.0",
+    "@aws-sdk/client-s3": "^3.850.0",
+    "@aws-sdk/lib-storage": "^3.857.0",
+    "@aws-sdk/s3-request-presigner": "^3.850.0",
     "base64-encode-decode": "^0.0.3",
     "bcrypt": "^5.1.1",
     "bootstrap": "^5.3.1",
     "formidable": "^2.1.2",
-    "next": "^12.3.4",
-    "react": "17.0.2",
+    "mongodb": "^6.17.0",
+    "next": "^15.3.4",
+    "next-auth": "^4.24.11",
+    "react": "^18.3.1",
     "react-bootstrap": "^2.8.0",
     "react-customizable-progressbar": "^1.2.0",
-    "react-dom": "17.0.2"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "eslint": "7.32.0",
-    "eslint-config-next": "12.0.3"
+    "eslint": "^9.30.0",
+    "eslint-config-next": "^15.3.4"
   }
 }

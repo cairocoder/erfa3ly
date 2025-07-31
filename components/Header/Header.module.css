@@ -1,0 +1,52 @@
+/* Style the custom dropdown button */
+.profileDropdown .btn-link {
+    text-decoration: none !important;
+    color: #6c757d;
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+}
+
+.profileDropdown .btn-link:hover {
+    color: #495057;
+    text-decoration: none !important;
+}
+
+.profileDropdown .btn-link:focus {
+    text-decoration: none !important;
+    box-shadow: none !important;
+}
+
+/* Position the dropdown arrow properly */
+.profileDropdown .dropdown-toggle::after {
+    display: inline-block !important;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
+    content: "";
+    position: relative;
+    top: 0;
+}
+
+/* Style the username text */
+.userName {
+    display: inline-block;
+    vertical-align: middle;
+    color: #6c757d !important;
+    text-decoration: none !important;
+    font-weight: bold;
+}
+
+.userName:hover {
+    color: #495057 !important;
+    text-decoration: none !important;
+}
+
+/* Additional override for any remaining underline */
+.profileDropdown button,
+.profileDropdown button * {
+    text-decoration: none !important;
+}
